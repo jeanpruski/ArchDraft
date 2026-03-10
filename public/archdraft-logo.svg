@@ -1,0 +1,24 @@
+<svg width="520" height="128" viewBox="0 0 520 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1FA7E8"/>
+      <stop offset="100%" stop-color="#102F6F"/>
+    </linearGradient>
+    <linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#30C7A0"/>
+      <stop offset="100%" stop-color="#1FA884"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="6" width="116" height="116" rx="26" fill="url(#gBlue)"/>
+  <rect x="19" y="19" width="90" height="90" rx="18" fill="white" fill-opacity="0.92"/>
+
+  <circle cx="39" cy="40" r="10" fill="url(#gGreen)"/>
+  <circle cx="88" cy="40" r="10" fill="url(#gGreen)"/>
+  <circle cx="64" cy="82" r="10" fill="#102F6F"/>
+  <path d="M39 40L88 40M39 40L64 82M88 40L64 82" stroke="#2B7DB8" stroke-width="5" stroke-linecap="round"/>
+
+  <text x="148" y="82" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="74" font-weight="700">
+    <tspan fill="#102F6F">Arch</tspan><tspan fill="#22B48D">Draft</tspan>
+  </text>
+</svg>

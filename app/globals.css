@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7fafc;
+  --panel: #ffffff;
+  --line: #dbe6ef;
+  --text: #102a43;
+  --muted: #5f7286;
+  --brand-blue: #102f6f;
+  --brand-green: #22b48d;
+}
+
+body {
+  @apply antialiased;
+  background:
+    radial-gradient(1000px 500px at 10% -5%, #e9f3ff 0%, transparent 60%),
+    radial-gradient(900px 460px at 100% 0%, #e9fbf6 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: 'Inter Tight', 'Segoe UI', sans-serif;
+}
+
+.card {
+  @apply rounded-2xl p-4;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 10px 30px rgba(16, 47, 111, 0.06);
+}
+
+.input {
+  @apply w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+  --tw-ring-color: rgba(34, 180, 141, 0.22);
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors;
+  background: linear-gradient(135deg, var(--brand-green) 0%, #1fa180 100%);
+}
+
+.btn:hover {
+  filter: brightness(0.98);
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition-colors;
+}
+
+.btn-danger:hover {
+  @apply bg-rose-500;
+}
+
+.table {
+  @apply w-full overflow-x-auto rounded-xl;
+  border: 1px solid var(--line);
+}
+
+.table table {
+  @apply w-full text-sm;
+}
+
+.table th {
+  @apply px-3 py-2 text-left font-semibold;
+  background: #f2f7fb;
+  color: var(--brand-blue);
+}
+
+.table td {
+  @apply px-3 py-2 border-t;
+  border-color: #e6eef6;
+}

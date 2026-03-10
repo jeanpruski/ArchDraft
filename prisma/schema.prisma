@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  discovery
+  scoping
+  waiting_client
+  validation
+  ready_for_dev
+  in_development
+  testing
+  delivered
+  closed
+}
+
+enum ProjectSystemRole {
+  source
+  target
+  both
+}
+
+enum QuestionCategory {
+  business
+  functional
+  technical
+  security
+  data
+}
+
+enum QuestionType {
+  text
+  boolean
+  select
+}
+
+enum FlowDirection {
+  unidirectional
+  bidirectional
+}
+
+enum TriggerType {
+  webhook
+  api_polling
+  manual
+}
+
+enum FlowMode {
+  realtime
+  scheduled
+  manual
+}
+
+enum FlowFrequency {
+  instant
+  minutes_5
+  minutes_15
+  hourly
+  daily
+}
+
+enum RiskStatus {
+  open
+  mitigated
+  resolved
+}
+
+enum QuestionStatus {
+  open
+  waiting_client
+  answered
+}
+
+enum MilestoneStatus {
+  todo
+  in_progress
+  done
+  blocked
+}
+
+enum MappingDirection {
+  source_to_target
+  target_to_source
+}
+
+model Client {
+  id        Int       @id @default(autoincrement())
+  name      String
+  company   String
+  website   String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+model System {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  type        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    ProjectSystem[]
+  sourceFlows SyncFlow[] @relation("SourceSystem")
+  targetFlows SyncFlow[] @relation("TargetSystem")
+}
+
+model Project {
+  id              Int                @id @default(autoincrement())
+  name            String
+  clientId        Int
+  description     String?
+  context         String?
+  objective       String?
+  status          ProjectStatus      @default(discovery)
+  complexityScore  Int                @default(0)
+  deadline        DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectSystems  ProjectSystem[]
+  syncFlows       SyncFlow[]
+  answers         Answer[]
+  risks           Risk[]
+  decisions       Decision[]
+  openQuestions   OpenQuestion[]
+  milestones      Milestone[]
+}
+
+model ProjectSystem {
+  id        Int              @id @default(autoincrement())
+  projectId Int
+  systemId  Int
+  role      ProjectSystemRole @default(both)
+  notes     String?
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  system    System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, systemId, role])
+}
+
+model Question {
+  id       Int           @id @default(autoincrement())
+  category QuestionCategory
+  question String
+  type     QuestionType
+  required Boolean       @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  answers  Answer[]
+}
+
+model Answer {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  questionId  Int
+  answer      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, questionId], name: "project_question")
+}
+
+model SyncFlow {
+  id              Int            @id @default(autoincrement())
+  projectId       Int
+  name            String
+  sourceSystemId  Int
+  targetSystemId  Int
+  objectType      String
+  direction       FlowDirection
+  triggerType     TriggerType
+  mode            FlowMode
+  frequency       FlowFrequency?
+  description     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceSystem    System         @relation("SourceSystem", fields: [sourceSystemId], references: [id], onDelete: Restrict)
+  targetSystem    System         @relation("TargetSystem", fields: [targetSystemId], references: [id], onDelete: Restrict)
+  fieldMappings   FieldMapping[]
+}
+
+model FieldMapping {
+  id               Int       @id @default(autoincrement())
+  syncFlowId       Int
+  sourceField      String
+  targetField      String
+  direction        MappingDirection @default(source_to_target)
+  transformation   String?
+  required         Boolean   @default(false)
+  defaultValue     String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  syncFlow         SyncFlow  @relation(fields: [syncFlowId], references: [id], onDelete: Cascade)
+}
+
+model Risk {
+  id          Int        @id @default(autoincrement())
+  projectId   Int
+  description String
+  impact      String
+  status      RiskStatus @default(open)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Decision {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  description String
+  decision  String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model OpenQuestion {
+  id         Int            @id @default(autoincrement())
+  projectId  Int
+  question   String
+  response   String?
+  status     QuestionStatus @default(open)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Milestone {
+  id        Int            @id @default(autoincrement())
+  projectId Int
+  title     String
+  status    MilestoneStatus @default(todo)
+  dueDate   DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
