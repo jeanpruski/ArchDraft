@@ -29,6 +29,7 @@ export default function DecisionsPage({ params }: { params: { id: string } }) {
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/decisions/${id}`, { method: "DELETE" });
     load();
   };

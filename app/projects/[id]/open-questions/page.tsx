@@ -32,6 +32,7 @@ export default function OpenQuestionsPage({ params }: { params: { id: string } }
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/open-questions/${id}`, { method: "DELETE" });
     load();
   };

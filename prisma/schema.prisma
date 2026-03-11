@@ -46,6 +46,7 @@ enum FlowDirection {
 
 enum TriggerType {
   webhook
+  hubspot_webhook
   api_polling
   manual
 }
@@ -176,9 +177,11 @@ model SyncFlow {
   sourceSystemId  Int
   targetSystemId  Int
   objectType      String
-  direction       FlowDirection
-  triggerType     TriggerType
-  mode            FlowMode
+  sourceItemTypes String?
+  targetItemTypes String?
+  direction       FlowDirection?
+  triggerType     TriggerType?
+  mode            FlowMode?
   frequency       FlowFrequency?
   description     String?
   createdAt       DateTime       @default(now())
@@ -194,7 +197,14 @@ model FieldMapping {
   syncFlowId       Int
   sourceField      String
   targetField      String
+  sourceObjectType String?
+  targetObjectType String?
   direction        MappingDirection @default(source_to_target)
+  reconciliationKey Boolean   @default(false)
+  sourceInternalName String?
+  sourceDataType   String?
+  targetInternalName String?
+  targetDataType   String?
   transformation   String?
   required         Boolean   @default(false)
   defaultValue     String?

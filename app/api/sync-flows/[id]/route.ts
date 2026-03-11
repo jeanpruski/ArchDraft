@@ -2,20 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recomputeProjectComplexity } from "@/lib/project-score";
 
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseEnumOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseFrequency(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (!value) return null;
+  if (value === "5min") return "minutes_5";
+  if (value === "15min") return "minutes_15";
+  return value;
+}
+
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   const body = await req.json();
+  const sourceItemTypes = normalizeText(body.sourceItemTypes);
+  const targetItemTypes = normalizeText(body.targetItemTypes);
   const updated = await prisma.syncFlow.update({
     where: { id },
     data: {
       name: body.name,
       sourceSystemId: Number(body.sourceSystemId),
       targetSystemId: Number(body.targetSystemId),
-      objectType: body.objectType,
-      direction: body.direction,
-      triggerType: body.triggerType,
-      mode: body.mode,
-      frequency: body.frequency === "5min" ? "minutes_5" : body.frequency === "15min" ? "minutes_15" : body.frequency,
+      objectType: body.objectType || `${sourceItemTypes || "source"} -> ${targetItemTypes || "cible"}`,
+      sourceItemTypes,
+      targetItemTypes,
+      direction: parseEnumOrNull(body.direction),
+      triggerType: parseEnumOrNull(body.triggerType),
+      mode: parseEnumOrNull(body.mode),
+      frequency: parseFrequency(body.frequency),
       description: body.description || null
     }
   });

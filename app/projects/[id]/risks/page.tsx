@@ -30,6 +30,7 @@ export default function RisksPage({ params }: { params: { id: string } }) {
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/risks/${id}`, { method: "DELETE" });
     load();
   };

@@ -11,7 +11,7 @@ export const PROJECT_STATUSES = [
 ] as const;
 
 export const FLOW_DIRECTIONS = ["unidirectional", "bidirectional"] as const;
-export const FLOW_TRIGGERS = ["webhook", "api_polling", "manual"] as const;
+export const FLOW_TRIGGERS = ["webhook", "hubspot_webhook", "api_polling", "manual"] as const;
 export const FLOW_MODES = ["realtime", "scheduled", "manual"] as const;
 export const FLOW_FREQUENCIES = ["instant", "5min", "15min", "hourly", "daily"] as const;
 export const QUESTION_TYPES = ["text", "boolean", "select"] as const;
@@ -40,6 +40,7 @@ export const FLOW_DIRECTION_LABELS: Record<(typeof FLOW_DIRECTIONS)[number], str
 
 export const FLOW_TRIGGER_LABELS: Record<(typeof FLOW_TRIGGERS)[number], string> = {
   webhook: "Webhook",
+  hubspot_webhook: "HubSpot Webhook",
   api_polling: "Polling API",
   manual: "Manuel"
 };

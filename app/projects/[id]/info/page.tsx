@@ -24,6 +24,8 @@ export default function ProjectInfoPage({ params }: { params: { id: string } }) 
   const [systems, setSystems] = useState<System[]>([]);
   const [form, setForm] = useState({ name: "", description: "", context: "", objective: "", status: "discovery" as (typeof PROJECT_STATUSES)[number], deadline: "", clientId: "" });
   const [linkForm, setLinkForm] = useState({ systemId: "", role: "both" as (typeof PROJECT_SYSTEM_ROLES)[number] });
+  const [editingSystemId, setEditingSystemId] = useState<number | null>(null);
+  const [editingRole, setEditingRole] = useState<(typeof PROJECT_SYSTEM_ROLES)[number]>("both");
 
   const load = async () => {
     const [projectRes, clientsRes, systemsRes] = await Promise.all([
@@ -72,7 +74,24 @@ export default function ProjectInfoPage({ params }: { params: { id: string } }) 
   };
 
   const removeSystem = async (id: number) => {
+    if (!window.confirm("Confirmer le retrait de ce système du projet ?")) return;
     await fetch(`/api/project-systems/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const startEditSystem = (id: number, role: string) => {
+    setEditingSystemId(id);
+    setEditingRole(role as (typeof PROJECT_SYSTEM_ROLES)[number]);
+  };
+
+  const saveSystemEdit = async (id: number) => {
+    await fetch(`/api/project-systems/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: editingRole })
+    });
+    setEditingSystemId(null);
+    setEditingRole("both");
     load();
   };
 
@@ -80,26 +99,51 @@ export default function ProjectInfoPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="grid gap-4">
-      <form onSubmit={save} className="card grid gap-3">
-        <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <select className="input" value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>{client.name} ({client.company})</option>
-          ))}
-        </select>
-        <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })}>
-          {PROJECT_STATUSES.map((status) => <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>)}
-        </select>
-        <input className="input" placeholder="Objectif" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} />
-        <input className="input" placeholder="Contexte" value={form.context} onChange={(e) => setForm({ ...form, context: e.target.value })} />
-        <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <input className="input" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
-        <button className="btn">Enregistrer les modifications</button>
-      </form>
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+        <form onSubmit={save} className="card grid gap-4 md:grid-cols-2">
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Nom du projet</label>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Client</label>
+            <select className="input" value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>{client.name} ({client.company})</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Statut</label>
+            <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })}>
+              {PROJECT_STATUSES.map((status) => <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>)}
+            </select>
+          </div>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Date cible</label>
+            <input className="input" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+          </div>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Objectif</label>
+            <input className="input" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} />
+          </div>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium text-[#35536f]">Contexte</label>
+            <input className="input" value={form.context} onChange={(e) => setForm({ ...form, context: e.target.value })} />
+          </div>
+          <div className="grid gap-1 md:col-span-2">
+            <label className="text-sm font-medium text-[#35536f]">Description</label>
+            <textarea className="input" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div>
+            <button className="btn">Enregistrer les modifications</button>
+          </div>
+        </form>
 
-      <section className="card">
-        <h3 className="mb-2 font-semibold">Score de complexité</h3>
-        <p className="text-3xl font-bold">{project.complexityScore}</p>
+        <section className="card xl:sticky xl:top-6">
+          <h3 className="mb-2 font-semibold">Score de complexité</h3>
+          <p className="text-3xl font-bold">{project.complexityScore}</p>
+        </section>
       </section>
 
       <section className="card">
@@ -117,8 +161,36 @@ export default function ProjectInfoPage({ params }: { params: { id: string } }) 
         <div className="space-y-2">
           {project.projectSystems.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between border border-slate-800 p-2 rounded-lg">
-              <div>{entry.system.name} <span className="text-slate-400">({PROJECT_SYSTEM_ROLE_LABELS[entry.role as keyof typeof PROJECT_SYSTEM_ROLE_LABELS]})</span></div>
-              <button className="btn-danger" onClick={() => removeSystem(entry.id)}>Retirer</button>
+              {editingSystemId === entry.id ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{entry.system.name}</span>
+                    <select
+                      className="input w-44"
+                      value={editingRole}
+                      onChange={(e) => setEditingRole(e.target.value as (typeof PROJECT_SYSTEM_ROLES)[number])}
+                    >
+                      {PROJECT_SYSTEM_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {PROJECT_SYSTEM_ROLE_LABELS[role]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="btn" type="button" onClick={() => saveSystemEdit(entry.id)}>Enregistrer</button>
+                    <button className="btn-danger" type="button" onClick={() => setEditingSystemId(null)}>Annuler</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>{entry.system.name} <span className="text-slate-400">({PROJECT_SYSTEM_ROLE_LABELS[entry.role as keyof typeof PROJECT_SYSTEM_ROLE_LABELS]})</span></div>
+                  <div className="flex items-center gap-2">
+                    <button className="btn" type="button" onClick={() => startEditSystem(entry.id, entry.role)}>Éditer</button>
+                    <button className="btn-danger" type="button" onClick={() => removeSystem(entry.id)}>Retirer</button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>

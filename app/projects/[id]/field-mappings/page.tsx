@@ -12,13 +12,22 @@ type SyncFlow = {
   sourceSystem: { name: string };
   targetSystem: { name: string };
   direction: string;
+  sourceItemTypes?: string | null;
+  targetItemTypes?: string | null;
 };
 type Mapping = {
   id: number;
   syncFlowId: number;
   sourceField: string;
   targetField: string;
+  sourceObjectType: string | null;
+  targetObjectType: string | null;
   direction: string;
+  reconciliationKey: boolean;
+  sourceInternalName: string | null;
+  sourceDataType: string | null;
+  targetInternalName: string | null;
+  targetDataType: string | null;
   transformation: string | null;
   required: boolean;
   defaultValue: string | null;
@@ -29,11 +38,36 @@ type Mapping = {
 export default function FieldMappingsPage({ params }: { params: { id: string } }) {
   const [flows, setFlows] = useState<SyncFlow[]>([]);
   const [mappings, setMappings] = useState<Mapping[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    direction: MAPPING_DIRECTIONS[0],
+    sourceObjectType: "",
+    sourceField: "",
+    sourceInternalName: "",
+    sourceDataType: "",
+    targetObjectType: "",
+    targetField: "",
+    targetInternalName: "",
+    targetDataType: "",
+    reconciliationKey: false,
+    transformation: "",
+    required: false,
+    defaultValue: "",
+    notes: ""
+  });
   const [form, setForm] = useState({
     syncFlowId: "",
     sourceField: "",
     targetField: "",
+    sourceObjectType: "",
+    targetObjectType: "",
     direction: MAPPING_DIRECTIONS[0],
+    reconciliationKey: false,
+    sourceInternalName: "",
+    sourceDataType: "",
+    targetInternalName: "",
+    targetDataType: "",
     transformation: "",
     required: false,
     defaultValue: "",
@@ -73,7 +107,14 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
       syncFlowId: "",
       sourceField: "",
       targetField: "",
+      sourceObjectType: "",
+      targetObjectType: "",
       direction: MAPPING_DIRECTIONS[0],
+      reconciliationKey: false,
+      sourceInternalName: "",
+      sourceDataType: "",
+      targetInternalName: "",
+      targetDataType: "",
       transformation: "",
       required: false,
       defaultValue: "",
@@ -83,11 +124,57 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/field-mappings/${id}`, { method: "DELETE" });
     load();
   };
 
+  const startEdit = (row: Mapping) => {
+    setEditingId(row.id);
+    setEditForm({
+      direction: row.direction || MAPPING_DIRECTIONS[0],
+      sourceObjectType: row.sourceObjectType || "",
+      sourceField: row.sourceField || "",
+      sourceInternalName: row.sourceInternalName || "",
+      sourceDataType: row.sourceDataType || "",
+      targetObjectType: row.targetObjectType || "",
+      targetField: row.targetField || "",
+      targetInternalName: row.targetInternalName || "",
+      targetDataType: row.targetDataType || "",
+      reconciliationKey: Boolean(row.reconciliationKey),
+      transformation: row.transformation || "",
+      required: Boolean(row.required),
+      defaultValue: row.defaultValue || "",
+      notes: row.notes || ""
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (id: number) => {
+    await fetch(`/api/field-mappings/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm)
+    });
+    setEditingId(null);
+    load();
+  };
+
   const selectedFlow = flows.find((flow) => flow.id === Number(form.syncFlowId));
+  const toObjectOptions = (value?: string | null) =>
+    Array.from(
+      new Set(
+        (value || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  const sourceObjectOptions = selectedFlow ? toObjectOptions(selectedFlow.sourceItemTypes) : [];
+  const targetObjectOptions = selectedFlow ? toObjectOptions(selectedFlow.targetItemTypes) : [];
   const allowedDirections = selectedFlow?.direction === "bidirectional" ? MAPPING_DIRECTIONS : [MAPPING_DIRECTIONS[0]];
   const grouped = mappings.reduce<Record<number, Mapping[]>>((acc, mapping) => {
     if (!acc[mapping.syncFlowId]) acc[mapping.syncFlowId] = [];
@@ -97,97 +184,382 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
 
   return (
     <div className="grid gap-4">
-      <form onSubmit={create} className="card grid gap-2 md:grid-cols-4">
-        <select className="input" value={form.syncFlowId} onChange={(e) => setForm({ ...form, syncFlowId: e.target.value })} required>
-          <option value="">Flux</option>
-          {flows.map((flow) => <option key={flow.id} value={flow.id}>{flow.name} ({flow.sourceSystem.name} → {flow.targetSystem.name})</option>)}
-        </select>
-        <input className="input" placeholder="Champ source" value={form.sourceField} onChange={(e) => setForm({ ...form, sourceField: e.target.value })} required />
-        <input className="input" placeholder="Champ cible" value={form.targetField} onChange={(e) => setForm({ ...form, targetField: e.target.value })} required />
-        <select
-          className="input"
-          value={form.direction}
-          onChange={(e) => setForm({ ...form, direction: e.target.value })}
-          disabled={!selectedFlow || selectedFlow.direction !== "bidirectional"}
-        >
-          {allowedDirections.map((direction) => (
-            <option key={direction} value={direction}>{MAPPING_DIRECTION_LABELS[direction]}</option>
-          ))}
-        </select>
-        <input className="input" placeholder="Transformation" value={form.transformation} onChange={(e) => setForm({ ...form, transformation: e.target.value })} />
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} />
-          Requis
-        </label>
-        <input className="input" placeholder="Valeur par défaut" value={form.defaultValue} onChange={(e) => setForm({ ...form, defaultValue: e.target.value })} />
-        <input className="input" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        <button className="btn">Ajouter un mapping</button>
-      </form>
-
       <section className="card">
-        <h3 className="mb-3 text-lg font-semibold">Vue visuelle des mappings</h3>
-        <div className="grid gap-3">
-          {flows.map((flow) => (
-            <div key={flow.id} className="rounded-xl border border-slate-800 p-3">
-              <p className="mb-2 font-semibold">{flow.name}</p>
-              <div className="space-y-2">
-                {(grouped[flow.id] || []).length === 0 ? (
-                  <p className="text-sm text-slate-400">Aucun mapping pour ce flux.</p>
-                ) : null}
-                {(grouped[flow.id] || []).map((row) => (
-                  <div key={row.id} className="rounded-lg border border-slate-700 p-2 text-sm">
-                    <p>
-                      {row.direction === "target_to_source" ? row.targetField : row.sourceField}
-                      {" "}
-                      <span className="text-slate-500">→</span>
-                      {" "}
-                      {row.direction === "target_to_source" ? row.sourceField : row.targetField}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Sens : {MAPPING_DIRECTION_LABELS[row.direction as keyof typeof MAPPING_DIRECTION_LABELS]} |
-                      {row.transformation ? ` Transformation : ${row.transformation}` : ""}
-                      {row.required ? " | Obligatoire" : ""}
-                    </p>
-                    {row.notes ? <p className="text-xs text-slate-500">Notes : {row.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-[#102f6f]">Nouveau mapping de champs</h3>
+          <button
+            type="button"
+            className="rounded-lg border border-[#dce8f2] bg-white px-3 py-2 text-sm font-medium text-[#102f6f] hover:bg-[#eef6ff]"
+            onClick={() => setIsCreateOpen((v) => !v)}
+          >
+            {isCreateOpen ? "Fermer" : "Créer un mapping"}
+          </button>
         </div>
+
+        {isCreateOpen ? (
+          <form onSubmit={create} className="mt-4 grid gap-3 md:grid-cols-4">
+            <div className="flex flex-col gap-0.5 md:col-span-4">
+              <label className="text-sm font-medium text-[#35536f]">Flux</label>
+              <select className="input" value={form.syncFlowId} onChange={(e) => setForm({ ...form, syncFlowId: e.target.value })} required>
+                <option value="">Sélectionner</option>
+                {flows.map((flow) => <option key={flow.id} value={flow.id}>{flow.name} ({flow.sourceSystem.name} → {flow.targetSystem.name})</option>)}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Objet source</label>
+              {sourceObjectOptions.length > 0 ? (
+                <select
+                  className="input"
+                  value={form.sourceObjectType}
+                  onChange={(e) => setForm({ ...form, sourceObjectType: e.target.value })}
+                >
+                  <option value="">Sélectionner</option>
+                  {sourceObjectOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="input"
+                  value={form.sourceObjectType}
+                  onChange={(e) => setForm({ ...form, sourceObjectType: e.target.value })}
+                  placeholder="Saisir un objet source"
+                />
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Champ source</label>
+              <input className="input" value={form.sourceField} onChange={(e) => setForm({ ...form, sourceField: e.target.value })} required />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Nom interne source</label>
+              <input className="input" value={form.sourceInternalName} onChange={(e) => setForm({ ...form, sourceInternalName: e.target.value })} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Type source</label>
+              <input className="input" value={form.sourceDataType} onChange={(e) => setForm({ ...form, sourceDataType: e.target.value })} />
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Objet cible</label>
+              {targetObjectOptions.length > 0 ? (
+                <select
+                  className="input"
+                  value={form.targetObjectType}
+                  onChange={(e) => setForm({ ...form, targetObjectType: e.target.value })}
+                >
+                  <option value="">Sélectionner</option>
+                  {targetObjectOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="input"
+                  value={form.targetObjectType}
+                  onChange={(e) => setForm({ ...form, targetObjectType: e.target.value })}
+                  placeholder="Saisir un objet cible"
+                />
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Champ cible</label>
+              <input className="input" value={form.targetField} onChange={(e) => setForm({ ...form, targetField: e.target.value })} required />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Nom interne cible</label>
+              <input className="input" value={form.targetInternalName} onChange={(e) => setForm({ ...form, targetInternalName: e.target.value })} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Type cible</label>
+              <input className="input" value={form.targetDataType} onChange={(e) => setForm({ ...form, targetDataType: e.target.value })} />
+            </div>
+
+            <div className="flex flex-col gap-0.5 md:col-span-4">
+              <label className="text-sm font-medium text-[#35536f]">Source -> Cible</label>
+              <select
+                className="input"
+                value={form.direction}
+                onChange={(e) => setForm({ ...form, direction: e.target.value })}
+                disabled={!selectedFlow || selectedFlow.direction !== "bidirectional"}
+              >
+                {allowedDirections.map((direction) => (
+                  <option key={direction} value={direction}>{MAPPING_DIRECTION_LABELS[direction]}</option>
+                ))}
+              </select>
+            </div>
+
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.reconciliationKey} onChange={(e) => setForm({ ...form, reconciliationKey: e.target.checked })} />
+              Clé de réconciliation
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} />
+              Requis
+            </label>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Valeur par défaut</label>
+              <input className="input" value={form.defaultValue} onChange={(e) => setForm({ ...form, defaultValue: e.target.value })} />
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <label className="text-sm font-medium text-[#35536f]">Transformation</label>
+              <input className="input" value={form.transformation} onChange={(e) => setForm({ ...form, transformation: e.target.value })} />
+            </div>
+            <div className="flex flex-col gap-0.5 md:col-span-2">
+              <label className="text-sm font-medium text-[#35536f]">Notes</label>
+              <input className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+
+            <div className="md:col-span-4">
+              <button className="btn">Ajouter un mapping</button>
+            </div>
+          </form>
+        ) : null}
       </section>
 
-      <section className="card table">
-        <table>
-          <thead>
-            <tr>
-              <th>Flux</th>
-              <th>Sens</th>
-              <th>Source</th>
-              <th>Cible</th>
-              <th>Transformation</th>
-              <th>Obligatoire</th>
-              <th>Défaut</th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mappings.map((row) => (
-              <tr key={row.id}>
-                <td>{row.syncFlow?.name}</td>
-                <td>{MAPPING_DIRECTION_LABELS[row.direction as keyof typeof MAPPING_DIRECTION_LABELS]}</td>
-                <td>{row.direction === "target_to_source" ? row.targetField : row.sourceField}</td>
-                <td>{row.direction === "target_to_source" ? row.sourceField : row.targetField}</td>
-                <td>{row.transformation || "-"}</td>
-                <td>{row.required ? "oui" : "non"}</td>
-                <td>{row.defaultValue || "-"}</td>
-                <td>{row.notes || "-"}</td>
-                <td><button className="btn-danger" onClick={() => remove(row.id)}>Supprimer</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <section className="grid min-w-0 gap-4">
+        {flows.map((flow) => {
+          const rows = grouped[flow.id] || [];
+          return (
+            <div key={flow.id} className="card min-w-0">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold text-[#102f6f]">{flow.name}</h3>
+                <p className="text-sm text-[#577590]">
+                  {flow.sourceSystem.name} → {flow.targetSystem.name}
+                </p>
+              </div>
+
+              {rows.length === 0 ? (
+                <p className="text-sm text-slate-500">Aucun mapping pour ce flux.</p>
+              ) : (
+                <div className="w-full max-w-full overflow-x-auto rounded-xl border border-[#dce8f2] bg-white">
+                  <table className="min-w-[1600px] border-collapse text-sm">
+                    <thead className="whitespace-nowrap">
+                      <tr>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Sens</th>
+                        <th className="border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Objet source</th>
+                        <th className="sticky left-0 z-10 border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Champ source</th>
+                        <th className="border border-[#dce8f2] bg-[#e7f1ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Interne source</th>
+                        <th className="border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Type source</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2"></th>
+                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Objet cible</th>
+                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Champ cible</th>
+                        <th className="border border-[#b9e4d6] bg-[#dff5ec] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Interne cible</th>
+                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Type cible</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Clé reco</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Transformation</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Obligatoire</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Défaut</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Notes</th>
+                        <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={row.id}>
+                          <td className="border border-[#e5edf5] bg-white px-3 py-2 whitespace-nowrap font-medium text-[#24435f]">
+                            {editingId === row.id ? (
+                              <select
+                                className="input min-w-[170px] py-1"
+                                value={editForm.direction}
+                                onChange={(e) => setEditForm({ ...editForm, direction: e.target.value })}
+                              >
+                                {MAPPING_DIRECTIONS.map((direction) => (
+                                  <option key={direction} value={direction}>
+                                    {MAPPING_DIRECTION_LABELS[direction]}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              MAPPING_DIRECTION_LABELS[row.direction as keyof typeof MAPPING_DIRECTION_LABELS]
+                            )}
+                          </td>
+                          <td className="border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1"
+                                value={editForm.sourceObjectType}
+                                onChange={(e) => setEditForm({ ...editForm, sourceObjectType: e.target.value })}
+                              />
+                            ) : (
+                              row.sourceObjectType || "-"
+                            )}
+                          </td>
+                          <td className="sticky left-0 z-[1] border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2 font-mono text-[13px]">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1 font-mono"
+                                value={editForm.sourceField}
+                                onChange={(e) => setEditForm({ ...editForm, sourceField: e.target.value })}
+                              />
+                            ) : (
+                              row.direction === "target_to_source" ? row.targetField : row.sourceField
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] bg-[#f3f8ff] px-3 py-2 font-mono text-[13px] font-semibold text-[#183f73]">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1 font-mono"
+                                value={editForm.sourceInternalName}
+                                onChange={(e) => setEditForm({ ...editForm, sourceInternalName: e.target.value })}
+                              />
+                            ) : (
+                              row.sourceInternalName || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[140px] py-1"
+                                value={editForm.sourceDataType}
+                                onChange={(e) => setEditForm({ ...editForm, sourceDataType: e.target.value })}
+                              />
+                            ) : (
+                              row.sourceDataType || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2 text-center text-base font-semibold text-[#35536f]">→</td>
+                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1"
+                                value={editForm.targetObjectType}
+                                onChange={(e) => setEditForm({ ...editForm, targetObjectType: e.target.value })}
+                              />
+                            ) : (
+                              row.targetObjectType || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2 font-mono text-[13px]">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1 font-mono"
+                                value={editForm.targetField}
+                                onChange={(e) => setEditForm({ ...editForm, targetField: e.target.value })}
+                              />
+                            ) : (
+                              row.direction === "target_to_source" ? row.sourceField : row.targetField
+                            )}
+                          </td>
+                          <td className="border border-[#b9e4d6] bg-[#e9f8f1] px-3 py-2 font-mono text-[13px] font-semibold text-[#0f5d47]">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1 font-mono"
+                                value={editForm.targetInternalName}
+                                onChange={(e) => setEditForm({ ...editForm, targetInternalName: e.target.value })}
+                              />
+                            ) : (
+                              row.targetInternalName || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[140px] py-1"
+                                value={editForm.targetDataType}
+                                onChange={(e) => setEditForm({ ...editForm, targetDataType: e.target.value })}
+                              />
+                            ) : (
+                              row.targetDataType || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <label className="inline-flex items-center gap-2 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.reconciliationKey}
+                                  onChange={(e) => setEditForm({ ...editForm, reconciliationKey: e.target.checked })}
+                                />
+                                oui
+                              </label>
+                            ) : (
+                              row.reconciliationKey ? "oui" : "non"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[180px] py-1"
+                                value={editForm.transformation}
+                                onChange={(e) => setEditForm({ ...editForm, transformation: e.target.value })}
+                              />
+                            ) : (
+                              row.transformation || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <label className="inline-flex items-center gap-2 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.required}
+                                  onChange={(e) => setEditForm({ ...editForm, required: e.target.checked })}
+                                />
+                                oui
+                              </label>
+                            ) : (
+                              row.required ? "oui" : "non"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[140px] py-1"
+                                value={editForm.defaultValue}
+                                onChange={(e) => setEditForm({ ...editForm, defaultValue: e.target.value })}
+                              />
+                            ) : (
+                              row.defaultValue || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <input
+                                className="input min-w-[220px] py-1"
+                                value={editForm.notes}
+                                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                              />
+                            ) : (
+                              row.notes || "-"
+                            )}
+                          </td>
+                          <td className="border border-[#e5edf5] px-3 py-2">
+                            {editingId === row.id ? (
+                              <div className="flex items-center gap-2">
+                                <button type="button" className="btn" onClick={() => saveEdit(row.id)}>Enregistrer</button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-[#dce8f2] bg-white px-3 py-2 text-sm font-medium text-[#102f6f] hover:bg-[#eef6ff]"
+                                  onClick={cancelEdit}
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-[#dce8f2] bg-white px-3 py-2 text-sm font-medium text-[#102f6f] hover:bg-[#eef6ff]"
+                                  onClick={() => startEdit(row)}
+                                >
+                                  Éditer
+                                </button>
+                                <button type="button" className="btn-danger" onClick={() => remove(row.id)}>Supprimer</button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
   );

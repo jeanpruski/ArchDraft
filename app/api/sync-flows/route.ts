@@ -9,6 +9,18 @@ function parseFrequency(value: string | null) {
   return value;
 }
 
+function parseEnumOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("projectId");
   const where = projectId ? { projectId: Number(projectId) } : {};
@@ -25,16 +37,20 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const sourceItemTypes = normalizeText(body.sourceItemTypes);
+  const targetItemTypes = normalizeText(body.targetItemTypes);
   const flow = await prisma.syncFlow.create({
     data: {
       projectId: Number(body.projectId),
       name: body.name,
       sourceSystemId: Number(body.sourceSystemId),
       targetSystemId: Number(body.targetSystemId),
-      objectType: body.objectType,
-      direction: body.direction,
-      triggerType: body.triggerType,
-      mode: body.mode,
+      objectType: body.objectType || `${sourceItemTypes || "source"} -> ${targetItemTypes || "cible"}`,
+      sourceItemTypes,
+      targetItemTypes,
+      direction: parseEnumOrNull(body.direction),
+      triggerType: parseEnumOrNull(body.triggerType),
+      mode: parseEnumOrNull(body.mode),
       frequency: parseFrequency(body.frequency),
       description: body.description || null
     }

@@ -40,6 +40,7 @@ export default function ClientsPage() {
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/clients/${id}`, { method: "DELETE" });
     load();
   };

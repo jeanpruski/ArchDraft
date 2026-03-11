@@ -34,6 +34,7 @@ export default function SystemsPage() {
   };
 
   const removeSystem = async (id: number) => {
+    if (!window.confirm("Confirmer la suppression ?")) return;
     await fetch(`/api/systems/${id}`, { method: "DELETE" });
     load();
   };
