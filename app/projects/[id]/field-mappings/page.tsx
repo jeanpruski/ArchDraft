@@ -35,6 +35,57 @@ type Mapping = {
   syncFlow: SyncFlow;
 };
 
+const HUBSPOT_KEYWORD = "hubspot";
+
+type ColumnPalette = {
+  header: string;
+  headerStrong: string;
+  cell: string;
+  cellStrong: string;
+};
+
+const COLUMN_PALETTES: Record<"blue" | "green" | "orange", ColumnPalette> = {
+  blue: {
+    header: "border-[#cfe2fb] bg-[#f3f8ff] text-[#102f6f]",
+    headerStrong: "border-[#dce8f2] bg-[#e7f1ff] text-[#102f6f]",
+    cell: "border-[#e1ebf8] bg-[#f8fbff] text-[#24435f]",
+    cellStrong: "border-[#e5edf5] bg-[#f3f8ff] text-[#183f73]"
+  },
+  green: {
+    header: "border-[#cdece3] bg-[#f2fbf7] text-[#0f5d47]",
+    headerStrong: "border-[#b9e4d6] bg-[#dff5ec] text-[#0f5d47]",
+    cell: "border-[#dff0ea] bg-[#f6fcf9] text-[#24435f]",
+    cellStrong: "border-[#b9e4d6] bg-[#e9f8f1] text-[#0f5d47]"
+  },
+  orange: {
+    header: "border-[#f4d7b5] bg-[#fff6ec] text-[#8a4b12]",
+    headerStrong: "border-[#efc794] bg-[#ffe8cf] text-[#8a4b12]",
+    cell: "border-[#f8e1c7] bg-[#fffaf3] text-[#5f3b1f]",
+    cellStrong: "border-[#efc794] bg-[#ffefd9] text-[#8a4b12]"
+  }
+};
+
+const normalizeSystemName = (name: string) => name.trim().toLocaleLowerCase("fr");
+const isHubSpotSystem = (name: string) => normalizeSystemName(name).includes(HUBSPOT_KEYWORD);
+
+const getFlowColumnPalettes = (flow: SyncFlow) => {
+  const sourceName = normalizeSystemName(flow.sourceSystem.name);
+  const targetName = normalizeSystemName(flow.targetSystem.name);
+
+  const sourceIsHubSpot = isHubSpotSystem(flow.sourceSystem.name);
+  const targetIsHubSpot = isHubSpotSystem(flow.targetSystem.name);
+
+  const sourcePrimary = sourceName.localeCompare(targetName, "fr", { sensitivity: "base" }) <= 0;
+
+  const sourceKey: keyof typeof COLUMN_PALETTES = sourceIsHubSpot ? "orange" : sourcePrimary ? "blue" : "green";
+  const targetKey: keyof typeof COLUMN_PALETTES = targetIsHubSpot ? "orange" : sourcePrimary ? "green" : "blue";
+
+  return {
+    source: COLUMN_PALETTES[sourceKey],
+    target: COLUMN_PALETTES[targetKey]
+  };
+};
+
 export default function FieldMappingsPage({ params }: { params: { id: string } }) {
   const [flows, setFlows] = useState<SyncFlow[]>([]);
   const [mappings, setMappings] = useState<Mapping[]>([]);
@@ -181,6 +232,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
     acc[mapping.syncFlowId].push(mapping);
     return acc;
   }, {});
+  const getDirectionArrow = (direction: string) => (direction === "target_to_source" ? "←" : "→");
 
   return (
     <div className="grid gap-4">
@@ -277,7 +329,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
             </div>
 
             <div className="flex flex-col gap-0.5 md:col-span-4">
-              <label className="text-sm font-medium text-[#35536f]">Source -> Cible</label>
+              <label className="text-sm font-medium text-[#35536f]">Source -&gt; Cible</label>
               <select
                 className="input"
                 value={form.direction}
@@ -322,13 +374,24 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
       <section className="grid min-w-0 gap-4">
         {flows.map((flow) => {
           const rows = grouped[flow.id] || [];
+          const palettes = getFlowColumnPalettes(flow);
           return (
             <div key={flow.id} className="card min-w-0">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-semibold text-[#102f6f]">{flow.name}</h3>
-                <p className="text-sm text-[#577590]">
-                  {flow.sourceSystem.name} → {flow.targetSystem.name}
-                </p>
+                <h3 className="text-lg font-semibold text-[#102f6f]">
+                  {flow.name}{" "}
+                  <span className="text-base font-semibold">
+                    (
+                    <span className={isHubSpotSystem(flow.sourceSystem.name) ? "text-[#d97706]" : "text-[#0f7f64]"}>
+                      {flow.sourceSystem.name}
+                    </span>
+                    <span className="text-[#577590]"> → </span>
+                    <span className={isHubSpotSystem(flow.targetSystem.name) ? "text-[#d97706]" : "text-[#0f7f64]"}>
+                      {flow.targetSystem.name}
+                    </span>
+                    )
+                  </span>
+                </h3>
               </div>
 
               {rows.length === 0 ? (
@@ -339,15 +402,15 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                     <thead className="whitespace-nowrap">
                       <tr>
                         <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Sens</th>
-                        <th className="border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Objet source</th>
-                        <th className="sticky left-0 z-10 border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Champ source</th>
-                        <th className="border border-[#dce8f2] bg-[#e7f1ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Interne source</th>
-                        <th className="border border-[#cfe2fb] bg-[#f3f8ff] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Type source</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.source.header}`}>Objet source</th>
+                        <th className={`sticky left-0 z-10 border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.source.header}`}>Champ source</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.source.headerStrong}`}>Interne source</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.source.header}`}>Type source</th>
                         <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2"></th>
-                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Objet cible</th>
-                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Champ cible</th>
-                        <th className="border border-[#b9e4d6] bg-[#dff5ec] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Interne cible</th>
-                        <th className="border border-[#cdece3] bg-[#f2fbf7] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#0f5d47]">Type cible</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.target.header}`}>Objet cible</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.target.header}`}>Champ cible</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.target.headerStrong}`}>Interne cible</th>
+                        <th className={`border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${palettes.target.header}`}>Type cible</th>
                         <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Clé reco</th>
                         <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Transformation</th>
                         <th className="border border-[#dce8f2] bg-[#eef4fa] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#102f6f]">Obligatoire</th>
@@ -376,7 +439,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               MAPPING_DIRECTION_LABELS[row.direction as keyof typeof MAPPING_DIRECTION_LABELS]
                             )}
                           </td>
-                          <td className="border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2">
+                          <td className={`border px-3 py-2 ${palettes.source.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1"
@@ -387,7 +450,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.sourceObjectType || "-"
                             )}
                           </td>
-                          <td className="sticky left-0 z-[1] border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2 font-mono text-[13px]">
+                          <td className={`sticky left-0 z-[1] border px-3 py-2 font-mono text-[13px] ${palettes.source.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1 font-mono"
@@ -398,7 +461,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.direction === "target_to_source" ? row.targetField : row.sourceField
                             )}
                           </td>
-                          <td className="border border-[#e5edf5] bg-[#f3f8ff] px-3 py-2 font-mono text-[13px] font-semibold text-[#183f73]">
+                          <td className={`border px-3 py-2 font-mono text-[13px] font-semibold ${palettes.source.cellStrong}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1 font-mono"
@@ -409,7 +472,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.sourceInternalName || "-"
                             )}
                           </td>
-                          <td className="border border-[#e1ebf8] bg-[#f8fbff] px-3 py-2">
+                          <td className={`border px-3 py-2 ${palettes.source.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[140px] py-1"
@@ -420,8 +483,10 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.sourceDataType || "-"
                             )}
                           </td>
-                          <td className="border border-[#e5edf5] px-3 py-2 text-center text-base font-semibold text-[#35536f]">→</td>
-                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2">
+                          <td className="border border-[#e5edf5] px-3 py-2 text-center text-base font-semibold text-[#35536f]">
+                            {editingId === row.id ? getDirectionArrow(editForm.direction) : getDirectionArrow(row.direction)}
+                          </td>
+                          <td className={`border px-3 py-2 ${palettes.target.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1"
@@ -432,7 +497,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.targetObjectType || "-"
                             )}
                           </td>
-                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2 font-mono text-[13px]">
+                          <td className={`border px-3 py-2 font-mono text-[13px] ${palettes.target.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1 font-mono"
@@ -443,7 +508,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.direction === "target_to_source" ? row.sourceField : row.targetField
                             )}
                           </td>
-                          <td className="border border-[#b9e4d6] bg-[#e9f8f1] px-3 py-2 font-mono text-[13px] font-semibold text-[#0f5d47]">
+                          <td className={`border px-3 py-2 font-mono text-[13px] font-semibold ${palettes.target.cellStrong}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[180px] py-1 font-mono"
@@ -454,7 +519,7 @@ export default function FieldMappingsPage({ params }: { params: { id: string } }
                               row.targetInternalName || "-"
                             )}
                           </td>
-                          <td className="border border-[#dff0ea] bg-[#f6fcf9] px-3 py-2">
+                          <td className={`border px-3 py-2 ${palettes.target.cell}`}>
                             {editingId === row.id ? (
                               <input
                                 className="input min-w-[140px] py-1"

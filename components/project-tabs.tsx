@@ -10,7 +10,6 @@ const tabs = [
   ["Flux de synchronisation", "sync-flows"],
   ["Mappages de champs", "field-mappings"],
   ["Risques", "risks"],
-  ["Décisions", "decisions"],
   ["Questions ouvertes", "open-questions"],
   ["Chronologie", "timeline"]
 ];
